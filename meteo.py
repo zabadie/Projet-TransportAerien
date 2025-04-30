@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 
 # Mois à parcourir
-mois = ["2025-01","2025-02","2025-03","2025-04"]
+mois = ["2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04"]
 
 # base URL de la page meteo
 base_url = "https://prevision-meteo.ch/climat/journalier/paris-orly/"
@@ -54,7 +54,7 @@ columns = ["Année et Mois", "Heure", "T l'air à deux mètres du sol (°C)", "T
 df = pd.DataFrame(all_data, columns=columns)
 
 # Exporter en CSV
-df.to_csv("meteo_paris_orly_par_heures_2025.csv", index=False, encoding="utf-8")
+df.to_csv("meteo_paris_orly_par_heures_2024_2025.csv", index=False, encoding="utf-8")
 
 print("Données météo exportées")
 
