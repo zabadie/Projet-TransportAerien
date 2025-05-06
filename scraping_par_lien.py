@@ -55,5 +55,5 @@ columns = ["Date", "Heure", "T l'air à deux mètres du sol (°C)", "T ressentie
 df = pd.DataFrame(all_data, columns=columns)
 
 # Export en fichier CSV
-df.to_csv("meteo_paris_orly_par_heures_2024_2025.csv", index=False, encoding="utf-8")
+df.to_csv("meteo_paris_orly_par_heures_2024_2025.csv", index=False, encoding="utf-8-sig")
 print("Donnees meteo exportees.")
