@@ -1,133 +1,59 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-from datetime import datetime, timedelta
-import time
 
-# Convertir une date au format timestamp (en ms)
-def date_to_timestamp(date):
-    return int(datetime.strptime(date, "%Y-%m-%d").timestamp() * 1000)
+# Mois à parcourir
+mois = ["2024-01","2024-02","2024-03","2024-04","2024-05","2024-06",
+        "2024-07","2024-08","2024-09","2024-10","2024-11","2024-12",
+        "2025-01","2025-02","2025-03","2025-04"]
 
-# Récupérer les vols d'une page donnée
-import requests
-from bs4 import BeautifulSoup
-import pandas as pd
-from datetime import datetime, timedelta
-import time
+# base URL de la page meteo
+base_url = "https://prevision-meteo.ch/climat/journalier/paris-orly/"
 
-# Convertir une date au format timestamp (en ms)
-def date_to_timestamp(date):
-    return int(datetime.strptime(date, "%Y-%m-%d").timestamp() * 1000)
+# Stockage de toutes les donnees
+all_data = []
 
-# Récupérer les vols d'une page donnée
-def get_flights(url):
+for m in mois:
+    url = base_url + m 
     response = requests.get(url)
+    response.encoding = 'utf-8'
     soup = BeautifulSoup(response.text, "html.parser")
-    vols = []
-    details = []
-    base_url = "https://www.avionio.com"
 
-    for row in soup.select("tr.tt-row"):
-        try:
-            heure = row.select_one("td.tt-d").text.strip()
-            destination = row.select_one("td.tt-ap").text.strip()
-            compagnie = row.select_one("td.tt-al").text.strip()
-            statut = row.select_one("td.tt-s").text.strip()
-            href = row.select_one("td.tt-f a")["href"]
+    # Recuperation des lignes du tableau
+    data_rows = soup.select("tbody tr")
 
-
-            final_details = ""
-
-            # Ajout des details par vol : terminal arrivee, depart...
-            td = row.find("td", class_="tt-f")
-            a_tag = td.find("a")
-
+    for tr in data_rows:
+        td_text_left = tr.find("td", class_="text-left")
+        if td_text_left:
+            a_tag = td_text_left.find("a")
             if a_tag and a_tag.has_attr("href"):
-                href = ""
+                jour = a_tag.get_text(strip=True)
                 href = a_tag["href"]
-                full_href = base_url + href
-                #print(f"Acces à {href}")
-
-                detail_vols = requests.get(full_href)
-                detail_soup = BeautifulSoup(detail_vols.text, "html.parser")
                 
-                card_details = detail_soup.find_all("div", class_ = "card details")
-                full_detail_text = []
+                try:
+                    detail_response = requests.get(href)
+                    detail_soup = BeautifulSoup(detail_response.text, "html.parser")
+                    detail_rows = detail_soup.select("tbody tr")
+                    
+                    for tr_detail in detail_rows:
+                        cols = tr_detail.find_all("td")
+                        if len(cols) == 14:  # Verifie qu'on a bien 14 colonnes
+                            values = [td.get_text(strip=True) for td in cols]
+                            values.insert(0, f"{m}-{jour.zfill(2)}")  # Date complete
+                            all_data.append(values)
+                except Exception as e:
+                    print(f"Erreur lors du chargement de {href} : {e}")
 
-                if card_details:
-                    for card in card_details:
-                        detail_parts = []
+# Colonnes
+columns = ["Date", "Heure", "T l'air à deux mètres du sol (°C)", "T ressentie au vent (°C)",
+           "T du point de rosée (°C)", "Direction du vent (km/h)", "Vitesse du vent lors de la mesure (km/h)",
+           "Vitesse moyenne du vent sur la dernière heure (km/h)", "Vitesse du vent maximum sur la dernière heure (km/h)",
+           "Humidité relative (%)", "Pression atmosphérique ramenée au niveau de la mer (hPa)",
+           "Visibilité (Km)", "Nebulosité (octa)", "Précipitations (mm/heure(s))", "Conditions observées à la station"]
 
-                        #Extraire les noms d aeroport
-                        card_section_card_header = card.find_all("div", class_="card-section card-header")
-                        for div in card_section_card_header:
-                            h2_tag = div.find("h2", class_="h1")
-                            if h2_tag:
-                                h2_text = h2_tag.get_text(strip=True)
-                                full_detail_text.append(h2_text)
+# Creation du DataFrame
+df = pd.DataFrame(all_data, columns=columns)
 
-                        p_tag = div.find("p")
-                        if p_tag:
-                            p_text = p_tag.get_text(strip=True)
-                            full_detail_text.append(p_text)
-
-                        # Extraction de tous les textes des <p> dans les card-section de card-body
-                        card_body = card.find("div", class_="card-body")
-                        if card_body:
-                            sections = card_body.find_all("div", class_="card-section")
-                            for section in sections:
-                                detail_parts += [p.get_text(strip=True) for p in section.find_all("p")]
-                        
-                        # Extraction de tous les <p class = "h1 no-margin"> dans les card-section et card-footer
-                        card_footers = card.find_all("div", class_="card-section card-footer")
-                        for footer in card_footers :
-                            detail_parts += [p.get_text(strip=True) for p in footer.find_all("p", class_="h1 no-margin")]
-                        
-                        full_detail_text += detail_parts
-                        final_details = ','.join(full_detail_text)
-                        details.append(final_details)
-            vols.append({
-                "heure": heure,
-                "destination": destination,
-                "compagnie": compagnie,
-                "statut": statut,
-                "lien":href
-            })
-
-        
-
-
-        except:
-            continue
-    return vols, details
-
-# Variables
-start_date = datetime(2025, 1, 2)
-end_date = datetime.today()
-base_url = "https://www.avionio.com/fr/airport/ory/departures?ts={timestamp}&page=-2"
-
-# Liste finale
-all_flights = []
-all_details = []
-
-# Scraping par jour
-current_date = start_date
-while current_date <= end_date:
-    #print(f"Scraping {current_date.strftime('%Y-%m-%d')} ...")
-    timestamp = date_to_timestamp(current_date.strftime("%Y-%m-%d"))
-    url = base_url.format(timestamp=timestamp)
-    flights, details = get_flights(url)
-
-    all_flights.extend(flights)
-    all_details.extend(details)
-
-    time.sleep(1)
-    current_date += timedelta(days=1)
-
-# Export CSV
-df = pd.DataFrame(all_flights)
-df_details = pd.DataFrame(all_details, columns=["aéroport départ,Horaire text,heure initiale départ,date initiale départ,statut,heure finale départ,date finale départ,terminal départ,portail départ,enregistrement départ,aéroport arrivée,Arrivée texte,heure initiale arrivée,date initiale arrivée,statut,heure finale arrivée,date finale arrivée,terminal arrivée,portail arrivée,enregistrement arrivée"])
-
-df.to_csv("vols_ory.csv", index=False, encoding="utf-8")
-df_details.to_csv("vols_ory_details.csv", index=False, encoding="utf-8")
-
+# Export en fichier CSV
+df.to_csv("meteo_paris_orly_par_heures_2024_2025.csv", index=False, encoding="utf-8")
+print("Donnees meteo exportees.")
